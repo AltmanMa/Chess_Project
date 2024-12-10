@@ -5,14 +5,13 @@ import torch.nn.functional as F
 from torch.cuda.amp import autocast, GradScaler
 import os
 from game import index2move, move2index
-# 配置参数
-ACTION_SPACE = 2086  # 动作空间大小（假设有2086个合法动作）
-INPUT_CHANNELS = 9  # 输入通道数
-BOARD_HEIGHT = 10  # 棋盘高度
-BOARD_WIDTH = 9  # 棋盘宽度
+ACTION_SPACE = 2086  
+INPUT_CHANNELS = 9 
+BOARD_HEIGHT = 10 
+BOARD_WIDTH = 9 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# 残差块定义
+# Res Block
 class ResBlock(nn.Module):
     def __init__(self, num_filters=256):
         super(ResBlock, self).__init__()
@@ -32,40 +31,37 @@ class ResBlock(nn.Module):
         x += residual
         return self.relu(x)
 
-
-# 策略价值网络
+#Policy Value Network
 class Net(nn.Module):
     def __init__(self, num_channels=256, num_res_blocks=7):
         super(Net, self).__init__()
-        # 公共特征提取
         self.conv_block = nn.Conv2d(INPUT_CHANNELS, num_channels, kernel_size=3, stride=1, padding=1)
         self.bn = nn.BatchNorm2d(num_channels)
         self.relu = nn.ReLU()
         self.res_blocks = nn.Sequential(*[ResBlock(num_channels) for _ in range(num_res_blocks)])
-        # 策略头
+        # Policy head
         self.policy_conv = nn.Conv2d(num_channels, 16, kernel_size=1)
         self.policy_bn = nn.BatchNorm2d(16)
         self.policy_fc = nn.Linear(16 * BOARD_HEIGHT * BOARD_WIDTH, ACTION_SPACE)
-        # 价值头
+        # Value head
         self.value_conv = nn.Conv2d(num_channels, 8, kernel_size=1)
         self.value_bn = nn.BatchNorm2d(8)
         self.value_fc1 = nn.Linear(8 * BOARD_HEIGHT * BOARD_WIDTH, 256)
         self.value_fc2 = nn.Linear(256, 1)
 
     def forward(self, x):
-        # 公共特征
         x = self.conv_block(x)
         x = self.bn(x)
         x = self.relu(x)
         x = self.res_blocks(x)
-        # 策略头
+        # Policy head
         policy = self.policy_conv(x)
         policy = self.policy_bn(policy)
         policy = self.relu(policy)
         policy = policy.view(policy.size(0), -1)
         policy = self.policy_fc(policy)
         policy = F.log_softmax(policy, dim=1)
-        # 价值头
+        # Value head
         value = self.value_conv(x)
         value = self.value_bn(value)
         value = self.relu(value)
@@ -77,7 +73,6 @@ class Net(nn.Module):
         return policy, value
 
 
-# 策略价值网络的封装类
 class PolicyValueNet:
     def __init__(self, model_file=None, lr=0.002, use_gpu=True):
         self.device = DEVICE
@@ -89,7 +84,6 @@ class PolicyValueNet:
             self.load_model(model_file)
 
     def policy_value(self, state_batch):
-        """输入一批状态，输出动作概率和局面价值"""
         self.net.eval()
         with torch.no_grad():
             state_batch = torch.tensor(state_batch, dtype=torch.float32).to(self.device)
@@ -98,7 +92,7 @@ class PolicyValueNet:
             return act_probs, value.cpu().numpy()
 
     def policy_value_fn(self, board):
-        """输入棋盘状态，返回合法动作概率及局面价值"""
+        """return probabilitis of all legal moves, and their values"""
         self.net.eval()
         legal_moves = board.get_all_legal_moves()
         current_state = board.get_training_state()
@@ -111,7 +105,7 @@ class PolicyValueNet:
         return legal_act_probs, value.item()
 
     def train_step(self, state_batch, mcts_probs, winner_batch):
-        """训练一步"""
+        """Do one Traning step"""
         self.net.train()
         state_batch = torch.tensor(state_batch, dtype=torch.float32).to(self.device)
         mcts_probs = torch.tensor(mcts_probs, dtype=torch.float32).to(self.device)
@@ -122,13 +116,15 @@ class PolicyValueNet:
             value_loss = F.mse_loss(value.view(-1), winner_batch)
             policy_loss = -torch.mean(torch.sum(mcts_probs * log_act_probs, dim=1))
             loss = value_loss + policy_loss
+            entropy = -torch.mean(torch.sum(torch.exp(log_act_probs) * log_act_probs, dim=1))
         self.scaler.scale(loss).backward()
         self.scaler.step(self.optimizer)
         self.scaler.update()
-        return loss.item()
+        return loss.item(), entropy.item() 
+
 
     def adjust_lr(self, lr):
-        """动态调整学习率"""
+        """Adjust Learning Rate Dynamically"""
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
 
@@ -138,15 +134,14 @@ class PolicyValueNet:
     def load_model(self, model_file):
         if os.path.exists(model_file):
             self.net.load_state_dict(torch.load(model_file, map_location=self.device))
-            print(f"模型加载成功：{model_file}")
+            print(f"Model Loaded Successfully: {model_file}")
         else:
-            print(f"模型文件未找到：{model_file}，使用初始模型")
+            print(f"Model not Found: {model_file}, Using initial instead")
 
 
 
 if __name__ == '__main__':
-    # 测试网络
     net = Net().to(DEVICE)
     dummy_input = torch.ones((8, INPUT_CHANNELS, BOARD_HEIGHT, BOARD_WIDTH)).to(DEVICE)
     policy, value = net(dummy_input)
-    print(f"策略输出形状: {policy.shape}, 价值输出形状: {value.shape}")
+    print(f"Policy output shape: {policy.shape}, Value output shape: {value.shape}")

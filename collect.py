@@ -12,7 +12,7 @@ from config import CONFIG
 class CollectPipeline:
     def __init__(self, init_model=None):
         self.data_buffer = deque(maxlen=CONFIG["buffer_size"])
-        self.temp = 1.0  # 温度参数
+        self.temp = 1.0  
         self.n_playout = CONFIG["n_playout"]
         self.c_puct = CONFIG["c_puct"]
         self.iters = 0
@@ -52,6 +52,7 @@ class CollectPipeline:
         """data strengthen"""
         extend_data = []
         for state, mcts_prob, winner in play_data:
+            print(f"State shape before processing: {state.shape}")
             extend_data.append((state, mcts_prob, winner))
             flipped_state = state[:, :, ::-1]
             flipped_mcts_prob = mcts_prob[::-1]
@@ -76,13 +77,18 @@ class CollectPipeline:
         play_data = []
         while True:
             move, mcts_probs = self.mcts_player.get_action(game, temp=self.temp, return_prob=True)
-            play_data.append((game.current_state, mcts_probs, None))
-            game.make_move(move)
+            if not move:  
+                print("Warning: No valid move returned. Ending game. Current State:")
+                print(game.current_state)
+                break
+            state = game.get_training_state()
             end, winner = game.is_game_over()
             if end:
                 play_data = [(state, prob, 1 if winner == game.current_player else -1)
                              for state, prob, _ in play_data]
                 return winner, play_data
+            play_data.append((state, mcts_probs, None))
+            game.make_move(move)
 
     def run(self, n_games=None):
         try:

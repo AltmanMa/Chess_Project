@@ -22,12 +22,12 @@ def all_moves():
             (7, 3, 8, 4), (8, 4, 7, 3), (7, 5, 8, 4), (8, 4, 7, 5)
         ]
         mmoves = [
-        # 红方象
+        # Red 方Minister
             (0, 2, 2, 0), (2, 0, 0, 2), (0, 2, 2, 4), (2, 4, 0, 2),
             (2, 0, 4, 2), (4, 2, 2, 0), (4, 2, 2, 4), (2, 4, 4, 2),
             (2, 4, 0, 6), (0, 6, 2, 4), (2, 4, 4, 6), (4, 6, 2, 4),
             (0, 6, 2, 8), (2, 8, 0, 6), (2, 8, 4, 6), (4, 6, 2, 8),
-        # 黑方象
+        # Black 方Minister
             (7, 0, 9, 2), (9, 2, 7, 0), (7, 4, 9, 6), (9, 6, 7, 4),
             (7, 0, 5, 2), (5, 2, 7, 0), (7, 4, 5, 6), (5, 6, 7, 4),
             (9, 2, 7, 4), (7, 4, 9, 2), (5, 6, 7, 8), (7, 8, 5, 6),
@@ -104,48 +104,46 @@ class GameState:
 
     def get_training_state(self):
         """
-        将当前棋盘状态 (10, 9) 转换为训练格式 (9, 10, 9)，使用 one-hot 编码。
+        Transfer the current borad stataus (10, 9) for training (9, 10, 9), Using one-hot
         """
-        # 定义 one-hot 编码字典
         arraymap = {
-            1: np.array([1, 0, 0, 0, 0, 0, 0]),    # 红车
-            2: np.array([0, 1, 0, 0, 0, 0, 0]),    # 红马
-            3: np.array([0, 0, 1, 0, 0, 0, 0]),    # 红象
-            4: np.array([0, 0, 0, 1, 0, 0, 0]),    # 红士
-            5: np.array([0, 0, 0, 0, 1, 0, 0]),    # 红帅
-            6: np.array([0, 0, 0, 0, 0, 1, 0]),    # 红炮
-            7: np.array([0, 0, 0, 0, 0, 0, 1]),    # 红兵
-            -1: np.array([-1, 0, 0, 0, 0, 0, 0]),  # 黑车
-            -2: np.array([0, -1, 0, 0, 0, 0, 0]),  # 黑马
-            -3: np.array([0, 0, -1, 0, 0, 0, 0]),  # 黑象
-            -4: np.array([0, 0, 0, -1, 0, 0, 0]),  # 黑士
-            -5: np.array([0, 0, 0, 0, -1, 0, 0]),  # 黑帅
-            -6: np.array([0, 0, 0, 0, 0, -1, 0]),  # 黑炮
-            -7: np.array([0, 0, 0, 0, 0, 0, -1]),  # 黑兵
-            0: np.array([0, 0, 0, 0, 0, 0, 0]),    # 空格
+            1: np.array([1, 0, 0, 0, 0, 0, 0]),    # Red Chariot
+            2: np.array([0, 1, 0, 0, 0, 0, 0]),    # Red Knight
+            3: np.array([0, 0, 1, 0, 0, 0, 0]),    # Red Minister
+            4: np.array([0, 0, 0, 1, 0, 0, 0]),    # Red Guradian
+            5: np.array([0, 0, 0, 0, 1, 0, 0]),    # Red General
+            6: np.array([0, 0, 0, 0, 0, 1, 0]),    # Red Cannon
+            7: np.array([0, 0, 0, 0, 0, 0, 1]),    # Red Warrior
+            -1: np.array([-1, 0, 0, 0, 0, 0, 0]),  # Black Chariot
+            -2: np.array([0, -1, 0, 0, 0, 0, 0]),  # Black Knight
+            -3: np.array([0, 0, -1, 0, 0, 0, 0]),  # Black Minister
+            -4: np.array([0, 0, 0, -1, 0, 0, 0]),  # Black Guradian
+            -5: np.array([0, 0, 0, 0, -1, 0, 0]),  # Black General
+            -6: np.array([0, 0, 0, 0, 0, -1, 0]),  # Black Cannon
+            -7: np.array([0, 0, 0, 0, 0, 0, -1]),  # Black Warrior
+            0: np.array([0, 0, 0, 0, 0, 0, 0]),    # empty
         }
 
-        # 创建输出数组，形状为 (9, 10, 9)
         training_state = np.zeros((9, 10, 9), dtype=np.float32)
 
-        # 填充棋子状态通道（第 0-6 个平面）
+        # on 0~6 Level, show the type of the piece
         for i in range(10):
             for j in range(9):
                 piece = self.current_state[i][j]
                 training_state[:7, i, j] = arraymap[piece]
 
-        # 填充最近一步落子位置通道（第 7 个平面）
+        # fill in the most recent move
         if self.last_move:
             move = self.last_move
             start_row, start_col = int(move[0]), int(move[1])
             end_row, end_col = int(move[2]), int(move[3])
-            training_state[7, start_row, start_col] = -1  # 起始位置
-            training_state[7, end_row, end_col] = 1       # 目标位置
+            training_state[7, start_row, start_col] = -1  
+            training_state[7, end_row, end_col] = 1
 
-        # 填充当前玩家标记通道（第 8 个平面）
-        if self.current_player == 1:  # 红方
+        # Fill in the gamer id
+        if self.current_player == 1:  # Red
             training_state[8, :, :] = 1
-        else:  # 黑方
+        else:  # Black
             training_state[8, :, :] = -1
 
         return training_state
@@ -187,6 +185,9 @@ class GameState:
                                     simulated_board, self.state_deque[-4]
                                 ):
                                     legal_moves.append(move)
+        if not legal_moves:
+            print("No legal moves generated. Current state:")
+            print(self.current_state)
         return legal_moves
 
 
