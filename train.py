@@ -36,6 +36,20 @@ class TrainPipeline:
         else:
             print("Havn't find data buffer, empty buffer used")
 
+    def _incremental_load_data_buffer(self):
+        """增量加载数据缓冲区"""
+        if os.path.exists(self.buffer_path):
+            with open(self.buffer_path, "rb") as f:
+                data = pickle.load(f)
+                new_data = data["data_buffer"]
+                if len(new_data) > len(self.data_buffer):  # 如果有新数据
+                    self.data_buffer.extend(new_data[len(self.data_buffer):])
+                    print(f"New data loaded, buffer size updated to {len(self.data_buffer)}")
+                else:
+                    print("No new data found in buffer.")
+        else:
+            print("No data buffer found.")
+
     def _save_data_buffer(self):
         os.makedirs(CONFIG["data_dir"], exist_ok=True)
         with open(self.buffer_path, "wb") as f:
@@ -80,6 +94,8 @@ class TrainPipeline:
         self._load_data_buffer()
         for i in range(self.game_batch_num):
             print(f"Traning Number {i + 1} started")
+            print(f"Buffer size: {len(self.data_buffer)}")
+            self._incremental_load_data_buffer()
             if len(self.data_buffer) < self.batch_size:
                 print("No enough data, Wating for data collection...")
                 time.sleep(30)  #

@@ -13,11 +13,11 @@ class TreeNode:
 
     def __init__(self, parent, prior_p):
         self._parent = parent
-        self._children = {}  # 映射动作到子节点
-        self._n_visits = 0   # 节点访问次数
-        self._Q = 0          # 平均动作价值
-        self._u = 0          # UCB1置信上限
-        self._P = prior_p    # 先验概率
+        self._children = {} 
+        self._n_visits = 0 
+        self._Q = 0 
+        self._u = 0 
+        self._P = prior_p
 
     def expand(self, action_priors):
         for action, prob in action_priors:
@@ -82,8 +82,12 @@ class MCTS:
         # Use Policy Value Network to value the node
         action_probs, leaf_value = self._policy(state)
         if not action_probs:  # No legal moves to expand
-            print("No legal moves in playout. Current state:")
-            print(state.current_state)
+            end, winner = state.is_game_over()
+            if end:
+                print(f'game is over at round {state.round_count}')
+            else:
+                print("No legal moves in playout.")
+            print(f'current Player is: {state.current_player}')
             return
         end, winner = state.is_game_over()
 
@@ -96,9 +100,9 @@ class MCTS:
 
     def get_move_probs(self, state, temp=1e-3):
         """
-        返回所有合法动作及其对应的概率
-        :param state: 当前游戏状态
-        :param temp: 温度参数，控制探索程度
+        Get All legal moves and their probabilities
+        :param state: Current Game State
+        :param temp: Temp Param to control how much to search
         """
         for _ in range(self._n_playout):
             state_copy = copy.deepcopy(state)
@@ -108,8 +112,9 @@ class MCTS:
             print("No children nodes in root. Possible issue with expansion or playout.")
             print("Current state:")
             print(state.current_state)
-            print('Last move is:')
-            print(state.last_move)
+            print(f'Last move is {state.last_move}:')
+            print(f'current round is {state.round_count}')
+            print(f'cuurent player is: {state.current_player}')
             return [], []
 
         act_visits = [(act, node._n_visits) for act, node in self._root._children.items()]
@@ -122,9 +127,6 @@ class MCTS:
         return acts, act_probs
 
     def update_with_move(self, last_move):
-        """
-        更新根节点为当前动作对应的子节点，保持子树状态
-        """
         if last_move in self._root._children:
             self._root = self._root._children[last_move]
             self._root._parent = None
@@ -134,7 +136,7 @@ class MCTS:
 
 class MCTSPlayer:
     """
-    基于MCTS的AI玩家
+    MCTS AI Player
     """
 
     def __init__(self, policy_value_function, c_puct=5, n_playout=2000, is_selfplay=False):

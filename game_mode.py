@@ -1,24 +1,24 @@
 import random
 import numpy as np
 from game import GameState
+from mcts import MCTSPlayer
+from Net import PolicyValueNet
+from config import CONFIG
 class GameController:
     def __init__(self, GameState):
         self.board = GameState
 
     def graphic(self, board):
         """
-        可视化棋盘状态
+        Visulize the borad
         """
-        print(f"当前玩家: {'红方' if board.current_player == 1 else '黑方'}")
+        print(f"Current Player: {'Red' if board.current_player == 1 else 'Black'}")
         board.render()
 
     def start_play(self, player1, player2, start_player=1, is_shown=True):
-        """
-        开始对弈（人机对战或人人对战）
-        """
         if start_player not in (1, -1):
-            raise ValueError("start_player 应该是 1（红方）或 -1（黑方）")
-        self.board.init_board()  # 初始化棋盘
+            raise ValueError("start_player should among 1 (red) or -1 (black)")
+        self.board.init_board() 
         self.board.current_player = start_player
         players = {1: player1, -1: player2}
 
@@ -37,15 +37,12 @@ class GameController:
             end, winner = self.board.is_game_over()
             if end:
                 if winner == 0:
-                    print("游戏结束: 和棋")
+                    print("Game end: Draw")
                 else:
-                    print(f"游戏结束: {'红方' if winner == 1 else '黑方'}获胜")
+                    print(f"Game End: {'Red' if winner == 1 else 'Black'} wins")
                 return winner
 
     def start_self_play(self, player, is_shown=False, temp=1e-3):
-        """
-        开始自我对弈并保存训练数据
-        """
         self.board.init_board()
         states, mcts_probs, current_players = [], [], []
 
@@ -77,14 +74,13 @@ class RandomPlayer:
         moves = board.get_all_legal_moves()
         chosen_move = random.choice(moves)
         if return_prob:
-            # 构造一个随机概率分布
             probs = np.zeros(len(moves))
             probs[moves.index(chosen_move)] = 1.0
             return chosen_move, probs
         return chosen_move
 
     def reset_player(self):
-        pass  # 在自我对弈中需要重置蒙特卡洛树
+        pass  
 
 if __name__ == "__main__":
 
@@ -94,11 +90,10 @@ if __name__ == "__main__":
     player1 = RandomPlayer(1)
     player2 = RandomPlayer(-1)
 
-    # 测试人机对弈
     winner = game_controller.start_play(player1, player2, start_player=1, is_shown=True)
-    print(f"对弈结束，赢家: {winner}")
+    print(f"Play ends, winner is: {winner}")
 
-    # 测试自我对弈
-    mcts_player = RandomPlayer(1)  # 替换为实际的 MCTS 玩家
+    policy_value_net = PolicyValueNet(model_file=CONFIG["model_file"])
+    mcts_player = MCTSPlayer(policy_value_net.policy_value_fn(testgame))  
     winner, training_data = game_controller.start_self_play(mcts_player, is_shown=False)
-    print(f"自我对弈结束，赢家: {winner}")
+    print(f"Play ends, winner is: {winner}")

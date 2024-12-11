@@ -88,6 +88,11 @@ class GameState:
         self.last_move = None
         self.round_limit = CONFIG['round_limit'] if CONFIG['round_limit'] else 200
         self.init_board()
+        if CONFIG['use_customized_game']:
+            state = np.array(CONFIG['initial_board'])
+            player = CONFIG['initial_player']
+            self.set_board(state, player)
+
 
     def init_board(self):
         """
@@ -152,7 +157,7 @@ class GameState:
 
     def is_valid_move(self, start, end):
         """
-        Check a move is valid
+        Primarily Check a move is valid
         """
         sr, sc = start
         er, ec = end
@@ -186,8 +191,7 @@ class GameState:
                                 ):
                                     legal_moves.append(move)
         if not legal_moves:
-            print("No legal moves generated. Current state:")
-            print(self.current_state)
+            print(f"No legal moves generated. Current Player is: {self.current_player} and Round numer is {self.round_count}")
         return legal_moves
 
 
@@ -425,29 +429,80 @@ class GameState:
             print(' '.join(f'{x:2}' for x in row))
         print()
 
+    def set_board(self, new_state, current_player=1, round_count=0, last_move=None):
+        """
+        Set the Board State Mannally, only for adjusting
+        
+        :param new_state: (10, 9), borad
+        :param current_player: 1 for Red, -1 for Black
+        :param round_count: Current Round Number
+        :param last_move: Last Move,  (start_row, start_col, end_row, end_col)
+        """
+        if new_state.shape != (10, 9):
+            raise ValueError("Board Shape Error: please make sure (10, 9)")
+        self.current_state = new_state
+        self.current_player = current_player
+        self.round_count = round_count
+        self.last_move = last_move
+        self.state_deque.clear()
+        self.state_deque.append(np.copy(new_state))
+        print("Board state updated successfully.")
+
+def flip_map(string):
+    new_str = ''
+    for index in range(4):
+        if index == 0 or index == 2:
+            new_str += (str(string[index]))
+        else:
+            new_str += (str(8 - int(string[index])))
+    return new_str
 
 if __name__ == "__main__":
     # Test
     game = GameState()
-    #game.render()
-
+    new_state = np.array([[-1,  0, -3,  0,  6, -4,  0,  0, -1],
+                        [ 0,  0,  0,  0, -4, -2,  0,  0,  0],
+                        [ 0,  0, -6,  0,  0,  0,  0,  0,  0],
+                        [ 0,  0,  0,  0,  0,  0, -7,  0,  0],
+                        [-7,  0, -7,  0, -7,  0, -3,  0, -7],
+                        [ 0, -6,  0,  6,  0,  0,  0,  0,  0],
+                        [ 7,  0,  7,  0,  7,  0,  7,  0,  7],
+                        [ 0,  0,  2,  0,  0,  0,  0,  0,  3],
+                        [ 0,  0,  0,  0,  0,  0,  0,  0,  2],
+                        [ 1,  0,  3,  4,  5,  4,  0,  0,  1],
+                        ])
+    # New_state = np.zeros((10, 9), dtype=int)
+    # New_state[0] = [1, 0, 0, 0, -5, 0, 0, 0, 0]
+    # New_state[9] = [0, 0, 0, 0, 5, 0, 0, 0, 0]
+    # New_state[7][4] = 3
+    # New_state[1][1] = 1
+    game.set_board(new_state, -1)
+    game.render()
+    is_over, winner = game.is_game_over()
+    print(f"game is over: {is_over}")
+    print(f"winner is : {winner}")
+    
     legal_moves = game.get_all_legal_moves()
-    #print("Legal move:", legal_moves)
-    print(game.get_training_state().shape)
+    print("Legal move:", legal_moves)
+    #print(game.get_training_state().shape)
     # Move
-    """ try:
+    try:
         move = legal_moves[0]  # first legal move
         start = (int(move[0]), int(move[1]))
         end = (int(move[2]), int(move[3]))
         game.make_move(start, end)
         game.render()
     except ValueError as e:
-        print(e) """
+        print(e)
+        
+    is_over, winner = game.is_game_over()
+    print(f"game is over: {is_over}")
+    print(f"winner is : {winner}")
 
     #test draw
     """ for i in range(31):
         if game.is_game_over()[0]:
-            print("Game End：", "Draw" if game.is_game_over()[1] == 0 else f"Winner: {game.is_game_over()[1]}")
+            print("Game End:", "Draw" if game.is_game_over()[1] == 0 else f"Winner: {game.is_game_over()[1]}")
             break
         moves = game.get_all_legal_moves()
         if moves:
